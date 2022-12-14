@@ -16,7 +16,7 @@ DATA_DIR = pathlib.Path("./data/")
 BURGERS_DATA_PATH = DATA_DIR / "burgers_data_R10.mat"
 SAVE_PATH = pathlib.Path("./trained_model/burgers_equation_demo01.h")
 
-traincfg = TrainConfig(20, 0.001, 100, 50, 0.5, "cpu")
+traincfg = TrainConfig(20, 0.001, 3, 50, 0.5, "cpu")
 dataloader = MatReader('data/burgers_data_R10.mat')
 sub = 8
 x_data = dataloader.read_field('a')[:, ::sub]

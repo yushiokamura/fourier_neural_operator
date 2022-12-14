@@ -1,0 +1,10 @@
+autopep8==2.0.0
+flake8==6.0.0
+mccabe==0.7.0
+numpy==1.23.5
+pycodestyle==2.10.0
+pyflakes==3.0.1
+scipy==1.9.3
+tomli==2.0.1
+torch==1.8.1
+typing-extensions==4.4.0

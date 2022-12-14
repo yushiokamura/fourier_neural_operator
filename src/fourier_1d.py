@@ -1,7 +1,7 @@
 """
 @author: Zongyi Li
-This file is the Fourier Neural Operator for 1D problem such as the 
-(time-independent) Burgers equation discussed in Section 5.1 in the 
+This file is the Fourier Neural Operator for 1D problem such as the
+(time-independent) Burgers equation discussed in Section 5.1 in the
 [paper](https://arxiv.org/pdf/2010.08895.pdf).
 """
 import numpy as np
@@ -18,7 +18,7 @@ class SpectralConv1d(nn.Module):
         super(SpectralConv1d, self).__init__()
 
         """
-        1D Fourier layer. It does FFT, linear transform, and Inverse FFT.    
+        1D Fourier layer. It does FFT, linear transform, and Inverse FFT.
         """
 
         self.in_channels = in_channels
@@ -28,8 +28,7 @@ class SpectralConv1d(nn.Module):
 
         self.scale = (1 / (in_channels*out_channels))
         self.weights1 = nn.Parameter(
-            self.scale * torch.rand(
-                in_channels, out_channels, self.modes1, dtype=torch.cfloat))
+            self.scale * torch.rand(in_channels, out_channels, self.modes1, dtype=torch.cfloat))
 
     # Complex multiplication
     def compl_mul1d(self, input, weights):
@@ -43,12 +42,8 @@ class SpectralConv1d(nn.Module):
         x_ft = torch.fft.rfft(x)
 
         # Multiply relevant Fourier modes
-        out_ft = torch.zeros(
-            batchsize,
-            self.out_channels,
-            x.size(-1)//2 + 1,
-            device=x.device,
-            dtype=torch.cfloat)
+        out_ft = torch.zeros(batchsize, self.out_channels,
+                             x.size(-1)//2 + 1, device=x.device, dtype=torch.cfloat)
         out_ft[:, :, :self.modes1] = self.compl_mul1d(
             x_ft[:, :, :self.modes1], self.weights1)
 
@@ -66,9 +61,8 @@ class FNO1d(nn.Module):
         1. Lift the input to the desire channel dimension by self.fc0 .
         2. 4 layers of the integral operators u' = (W + K)(u).
             W defined by self.w; K defined by self.conv .
-        3. Project from the channel space to the output 
+        3. Project from the channel space to the output
             space by self.fc1 and self.fc2 .
-        
         input: the solution of the initial condition and location (a(x), x)
         input shape: (batchsize, x=s, c=2)
         output: the solution of a later timestep

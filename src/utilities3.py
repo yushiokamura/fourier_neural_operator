@@ -1,21 +1,18 @@
 import torch
 import numpy as np
 import scipy.io
-import h5py
 import torch.nn as nn
 
 import operator
 from functools import reduce
-from functools import partial
 
 #################################################
 #
 # Utilities
 #
 #################################################
-device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
-# reading data
+
 class MatReader(object):
     def __init__(self, file_path, to_torch=True, to_cuda=False, to_float=True):
         super(MatReader, self).__init__()
@@ -31,12 +28,8 @@ class MatReader(object):
         self._load_file()
 
     def _load_file(self):
-        try:
-            self.data = scipy.io.loadmat(self.file_path)
-            self.old_mat = True
-        except:
-            self.data = h5py.File(self.file_path)
-            self.old_mat = False
+        self.data = scipy.io.loadmat(self.file_path)
+        self.old_mat = True
 
     def load_file(self, file_path):
         self.file_path = file_path
@@ -70,6 +63,8 @@ class MatReader(object):
         self.to_float = to_float
 
 # normalization, pointwise gaussian
+
+
 class UnitGaussianNormalizer(object):
     def __init__(self, x, eps=0.00001):
         super(UnitGaussianNormalizer, self).__init__()
@@ -85,15 +80,15 @@ class UnitGaussianNormalizer(object):
 
     def decode(self, x, sample_idx=None):
         if sample_idx is None:
-            std = self.std + self.eps # n
+            std = self.std + self.eps  # n
             mean = self.mean
         else:
             if len(self.mean.shape) == len(sample_idx[0].shape):
                 std = self.std[sample_idx] + self.eps  # batch*n
                 mean = self.mean[sample_idx]
             if len(self.mean.shape) > len(sample_idx[0].shape):
-                std = self.std[:,sample_idx]+ self.eps # T*batch*n
-                mean = self.mean[:,sample_idx]
+                std = self.std[:, sample_idx] + self.eps  # T*batch*n
+                mean = self.mean[:, sample_idx]
 
         # x is in shape of batch*n or T*batch*n
         x = (x * std) + mean
@@ -108,6 +103,8 @@ class UnitGaussianNormalizer(object):
         self.std = self.std.cpu()
 
 # normalization, Gaussian
+
+
 class GaussianNormalizer(object):
     def __init__(self, x, eps=0.00001):
         super(GaussianNormalizer, self).__init__()
@@ -157,12 +154,14 @@ class RangeNormalizer(object):
         x = x.view(s)
         return x
 
-#loss function with rel/abs Lp loss
+# loss function with rel/abs Lp loss
+
+
 class LpLoss(object):
     def __init__(self, d=2, p=2, size_average=True, reduction=True):
         super(LpLoss, self).__init__()
 
-        #Dimension and Lp-norm type are postive
+        # Dimension and Lp-norm type are postive
         assert d > 0 and p > 0
 
         self.d = d
@@ -173,10 +172,11 @@ class LpLoss(object):
     def abs(self, x, y):
         num_examples = x.size()[0]
 
-        #Assume uniform mesh
+        # Assume uniform mesh
         h = 1.0 / (x.size()[1] - 1.0)
 
-        all_norms = (h**(self.d/self.p))*torch.norm(x.view(num_examples,-1) - y.view(num_examples,-1), self.p, 1)
+        all_norms = (h**(self.d/self.p))*torch.norm(x.view(num_examples, -
+                                                           1) - y.view(num_examples, -1), self.p, 1)
 
         if self.reduction:
             if self.size_average:
@@ -189,8 +189,9 @@ class LpLoss(object):
     def rel(self, x, y):
         num_examples = x.size()[0]
 
-        diff_norms = torch.norm(x.reshape(num_examples,-1) - y.reshape(num_examples,-1), self.p, 1)
-        y_norms = torch.norm(y.reshape(num_examples,-1), self.p, 1)
+        diff_norms = torch.norm(
+            x.reshape(num_examples, -1) - y.reshape(num_examples, -1), self.p, 1)
+        y_norms = torch.norm(y.reshape(num_examples, -1), self.p, 1)
 
         if self.reduction:
             if self.size_average:
@@ -205,11 +206,13 @@ class LpLoss(object):
 
 # Sobolev norm (HS norm)
 # where we also compare the numerical derivatives between the output and target
+
+
 class HsLoss(object):
     def __init__(self, d=2, p=2, k=1, a=None, group=False, size_average=True, reduction=True):
         super(HsLoss, self).__init__()
 
-        #Dimension and Lp-norm type are postive
+        # Dimension and Lp-norm type are postive
         assert d > 0 and p > 0
 
         self.d = d
@@ -219,14 +222,15 @@ class HsLoss(object):
         self.reduction = reduction
         self.size_average = size_average
 
-        if a == None:
+        if a is None:
             a = [1,] * k
         self.a = a
 
     def rel(self, x, y):
         num_examples = x.size()[0]
-        diff_norms = torch.norm(x.reshape(num_examples,-1) - y.reshape(num_examples,-1), self.p, 1)
-        y_norms = torch.norm(y.reshape(num_examples,-1), self.p, 1)
+        diff_norms = torch.norm(
+            x.reshape(num_examples, -1) - y.reshape(num_examples, -1), self.p, 1)
+        y_norms = torch.norm(y.reshape(num_examples, -1), self.p, 1)
         if self.reduction:
             if self.size_average:
                 return torch.mean(diff_norms/y_norms)
@@ -243,15 +247,17 @@ class HsLoss(object):
         x = x.view(x.shape[0], nx, ny, -1)
         y = y.view(y.shape[0], nx, ny, -1)
 
-        k_x = torch.cat((torch.arange(start=0, end=nx//2, step=1),torch.arange(start=-nx//2, end=0, step=1)), 0).reshape(nx,1).repeat(1,ny)
-        k_y = torch.cat((torch.arange(start=0, end=ny//2, step=1),torch.arange(start=-ny//2, end=0, step=1)), 0).reshape(1,ny).repeat(nx,1)
-        k_x = torch.abs(k_x).reshape(1,nx,ny,1).to(x.device)
-        k_y = torch.abs(k_y).reshape(1,nx,ny,1).to(x.device)
+        k_x = torch.cat((torch.arange(start=0, end=nx//2, step=1), torch.arange(
+            start=-nx//2, end=0, step=1)), 0).reshape(nx, 1).repeat(1, ny)
+        k_y = torch.cat((torch.arange(start=0, end=ny//2, step=1), torch.arange(
+            start=-ny//2, end=0, step=1)), 0).reshape(1, ny).repeat(nx, 1)
+        k_x = torch.abs(k_x).reshape(1, nx, ny, 1).to(x.device)
+        k_y = torch.abs(k_y).reshape(1, nx, ny, 1).to(x.device)
 
         x = torch.fft.fftn(x, dim=[1, 2])
         y = torch.fft.fftn(y, dim=[1, 2])
 
-        if balanced==False:
+        if balanced is False:
             weight = 1
             if k >= 1:
                 weight += a[0]**2 * (k_x**2 + k_y**2)
@@ -272,6 +278,8 @@ class HsLoss(object):
         return loss
 
 # A simple feedforward neural network
+
+
 class DenseNet(torch.nn.Module):
     def __init__(self, layers, nonlinearity, out_nonlinearity=None, normalize=False):
         super(DenseNet, self).__init__()
@@ -305,6 +313,6 @@ class DenseNet(torch.nn.Module):
 def count_params(model):
     c = 0
     for p in list(model.parameters()):
-        c += reduce(operator.mul, 
+        c += reduce(operator.mul,
                     list(p.size()+(2,) if p.is_complex() else p.size()))
     return c

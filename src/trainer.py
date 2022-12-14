@@ -9,11 +9,21 @@ from src.utilities3 import LpLoss
 
 
 def create_train_test_loader(
-        x_data,
-        y_data,
-        train_rate,
-        batch_size) -> Tuple[DataLoader, DataLoader]:
+        x_data: torch.Tensor,
+        y_data: torch.Tensor,
+        train_rate: float,
+        batch_size: int) -> Tuple[DataLoader, DataLoader]:
+    """create train and test dataloader from Tensor
 
+    Args:
+        x_data (torch.Tensor): initial conditions
+        y_data (torch.Tensor): last conditions
+        train_rate (float): train rate in data
+        batch_size (int): batch size in training
+
+    Returns:
+        Tuple[DataLoader, DataLoader]: tuple of train and test dataloader
+    """
     ntrain = int(len(x_data) * train_rate)
     ntest = len(x_data) - ntrain
 
@@ -36,6 +46,9 @@ def create_train_test_loader(
 
 
 class Trainner:
+    """Train Class
+    """
+
     def __init__(
             self,
             model: torch.nn.Module,
@@ -43,7 +56,8 @@ class Trainner:
             learning_rate: float,
             epochs: int,
             device: str,
-            step_size, gamma) -> None:
+            step_size: int,
+            gamma: float) -> None:
 
         self.batch_size = batch_size
         self.learning_rate = learning_rate
@@ -58,9 +72,13 @@ class Trainner:
         self.loss = LpLoss(size_average=False)
         self.trainlog = []
 
-    def train(
-            self, x_data: torch.Tensor, y_data: torch.Tensor, train_rate: float) -> None:
-        """
+    def train(self, x_data: torch.Tensor, y_data: torch.Tensor, train_rate: float) -> None:
+        """train method.
+
+        Args:
+            x_data (torch.Tensor): initial conditions
+            y_data (torch.Tensor): last condition
+            train_rate (float): train rate in data
         """
 
         train_loader, test_loader = create_train_test_loader(
@@ -79,9 +97,14 @@ class Trainner:
                 f"epoch: {ep+1} / {self.epochs},"
                 f"train mse: {train_mse:.5g}, test_mse: {test_mse:.5g}")
 
-    def _train_one_epoch(
-            self, train_loader: DataLoader) -> Tuple[float, float]:
-        """
+    def _train_one_epoch(self, train_loader: DataLoader) -> Tuple[float, float]:
+        """train in one epoch
+
+        Args:
+            train_loader (DataLoader): dataloader for train
+
+        Returns:
+            Tuple[float, float]: tuple. MSE in train and L2 loss in train
         """
 
         self.model.train()
@@ -107,7 +130,13 @@ class Trainner:
 
     def _validate_one_epoch(
             self, test_loader: DataLoader) -> Tuple[float, float]:
-        """
+        """validation in one epoch
+
+        Args:
+            test_loader (DataLoader): dataloader for test
+
+        Returns:
+            Tuple[float, float]: tuple. MSE in test and L2 loss in test
         """
 
         self.model.eval()
@@ -128,7 +157,9 @@ class Trainner:
         return test_mse, test_l2
 
     def save(self, save_path: Path) -> None:
-        """
+        """save trained model into .h format
+        Args:
+            save_path (Path): save path. the format must be `.h`
         """
 
         torch.save(self.model.state_dict(), save_path)
