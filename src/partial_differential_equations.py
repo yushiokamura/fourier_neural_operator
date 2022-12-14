@@ -1,6 +1,7 @@
 import numpy as np
 from abc import ABC, abstractmethod
 from typing import List
+from functools import partial
 from dataclasses import dataclass
 
 
@@ -22,7 +23,8 @@ class InitFunction1D(ABC):
 
 
 class RectangularFunction(InitFunction1D):
-    def __init__(self, xmin: float, xmax: float, upper_value: float, lowwer_value: float) -> None:
+    def __init__(
+            self, xmin: float = -1, xmax: float = 1, upper_value: float = 1, lowwer_value: float = 0) -> None:
         super().__init__()
         self.xmin = xmin
         self.xmax = xmax
@@ -38,12 +40,14 @@ class RectangularFunction(InitFunction1D):
 
 class Gaussian1D(InitFunction1D):
 
-    def __init__(self, alpha: float = 1.) -> None:
+    def __init__(self, alpha: float = 1., center: float = 0.) -> None:
         super().__init__()
         self.alpha = alpha
+        self.center = center
 
     def __call__(self, x: float) -> float:
-        return np.exp(- x * x)
+        phi = x - self.center
+        return np.exp(- phi * phi)
 
 
 @dataclass()
@@ -67,18 +71,27 @@ class Condition1D:
 
 
 class InitCondition1D:
-    def __init__(self, xmin: float, xmax: float, sampleing_size: int, noiserate: float) -> None:
+    def __init__(
+            self, xmin: float, xmax: float, sampleing_size: int, noiserate: float=0.05, wavenoisescale: float = 1.) -> None:
+
         self.xmin = xmin
         self.xmax = xmax
         self.sampling_size = sampleing_size
         self.X = [xmin + i * ((self.xmax - self.xmin) / sampleing_size)
                   for i in range(self.sampling_size + 1)]
         self.noiserate = noiserate
+        self.wavenoisescale = wavenoisescale
+
+        self.sinbaseset = [partial(self._sinnpi, n=i) for i in range(1, 5)]
+        ci = np.random.randn(4)
+        self.ci = ci / np.linalg.norm(ci)
 
     def generate_initcond(self, initfunc: InitFunction1D) -> List[float]:
         objects = []
         for x in self.X:
-            objects.append(initfunc(x) + self.gaussian_noise(self.noiserate, 0.5))
+            obs = initfunc(x) + self.gaussian_noise(self.noiserate,
+                                                    0.1) + self.wavenoise(self.wavenoisescale, x)
+            objects.append(obs)
         return Condition1D(objects, self.xmin, self.xmax)
 
     def gaussian_noise(self, samplingrate: float, scale: float):
@@ -88,8 +101,19 @@ class InitCondition1D:
             noise = 0
         return noise
 
+    def wavenoise(self, scale: float, x: float) -> float:
+        noise = (1 / 5) * \
+            sum(self.ci * np.array([func(x) for func in self.sinbaseset]))
+        return scale * noise
+
+    @staticmethod
+    def _sinnpi(x: float, n: int) -> float:
+        return np.sin(n * np.pi * x)
+
 
 class HeatEquation1D:
+
+    pi = np.pi
 
     def __init__(self, initcondition: Condition1D) -> None:
 
@@ -111,8 +135,8 @@ class HeatEquation1D:
         Returns:
             float: kenel result
         """
-        delta = np.abs(x - y)
-        delta2 = np.power(delta, 2)
+        delta = x - y
+        delta2 = delta * delta
         return np.exp(- delta2 / (4 * t))
 
     def u(self, x: float, t: float) -> float:
@@ -126,10 +150,9 @@ class HeatEquation1D:
             float: result in (x, t)
         """
 
-        alpha = 1 / np.sqrt(4 * np.pi * t)
-        Y = self.conv
+        alpha = 1 / np.sqrt(4 * HeatEquation1D.pi * t)
         s = 0
-        for y in Y:
+        for y in self.conv:
             s += self._heat_kernel(x, y, t) * self.initcond[y] * self.samplef
         return alpha * s
 
