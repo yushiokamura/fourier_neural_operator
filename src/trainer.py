@@ -72,7 +72,7 @@ class Trainner:
         self.loss = LpLoss(size_average=False)
         self.trainlog = []
 
-    def train(self, x_data: torch.Tensor, y_data: torch.Tensor, train_rate: float) -> None:
+    def train(self, x_data: torch.Tensor, y_data: torch.Tensor, train_rate: float = 0.8) -> None:
         """train method.
 
         Args:
@@ -125,6 +125,7 @@ class Trainner:
             self.optimizer.step()
             train_mse += mse.item()
             train_l2 += l2.item()
+        train_mse /= len(train_loader)
 
         return train_mse, train_l2
 
@@ -153,7 +154,7 @@ class Trainner:
                                      y.view(self.batch_size, -1)).item()
                 test_mse += mse.item()
 
-            test_mse / len(test_loader)
+            test_mse /= len(test_loader)
         return test_mse, test_l2
 
     def save(self, save_path: Path) -> None:
